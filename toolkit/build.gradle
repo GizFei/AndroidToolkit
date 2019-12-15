@@ -1,0 +1,168 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
+android {
+    compileSdkVersion 28
+
+
+    defaultConfig {
+        minSdkVersion 23
+        targetSdkVersion 28
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles 'consumer-rules.pro'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation 'androidx.appcompat:appcompat:1.1.0'
+    implementation 'androidx.core:core-ktx:1.1.0'
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
+}
+
+/** 以下开始是将Android Library上传到JCenter的相关配置**/
+apply plugin: 'com.github.dcendents.android-maven'
+apply plugin: 'com.jfrog.bintray'
+apply plugin: 'org.jetbrains.dokka'
+
+//发布到的组织名称名字，必须填写
+group = "com.giz.android"
+// 版本号，下次更新是只需要更改版本号即可
+version = "1.0.0"
+//项目主页
+def siteUrl = 'https://github.com/GizFei/AndroidToolkit'
+//项目的版本控制地址
+def gitUrl = 'https://github.com/GizFei/AndroidToolkit'
+//发布到JCenter上的Package的名字，必须填写
+def pkgName = "toolkit"
+
+// 生成原文件
+task sourcesJar(type: Jar){
+    from android.sourceSets.main.java.srcDirs
+    classifier = 'sources'
+}
+
+// 生成文档
+task javadoc(type: Javadoc){
+    source = android.sourceSets.main.java.srcDirs
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+}
+
+// 文档打包成jar
+task javadocJar(type: Jar, dependsOn: javadoc){
+    classifier = "javadoc"
+    from javadoc.destinationDir
+}
+
+// Kotlin生成文档相关，生成html可行
+task dokkaJavadoc(type: org.jetbrains.dokka.gradle.DokkaTask) {
+    outputFormat = 'html'
+    outputDirectory = javadoc.destinationDir
+}
+task generateJavadoc(type: Jar, dependsOn: dokkaJavadoc) {
+    group = 'jar'
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+task generateSourcesJar(type: Jar) {
+    group = 'jar'
+    from android.sourceSets.main.java.srcDirs
+    classifier = 'sources'
+}
+
+// 拷贝javadoc文件
+task copyDoc(type: Copy){
+    from "${buildDir}/docs/"
+    into "docs"
+}
+//上传到jCenter所需要的源码文件
+// for java
+//artifacts {
+//    archives javadocJar
+//    archives sourcesJar
+//}
+// for kotlin
+artifacts {
+    archives generateJavadoc
+    archives generateSourcesJar
+}
+
+// 配置maven库，生成POM.xml文件
+install {
+    repositories.mavenInstaller {
+        // This generates POM.xml with proper parameters
+        pom {
+            project {
+                // 之前定义了group，这边不用定义groupId，否则会报错
+                packaging 'aar'
+                name pkgName
+                url siteUrl
+                artifactId 'android-toolkit'
+                // 引用JCenter的格式：group:artifactId:version
+                // 即：com.giz.android:android-toolkit:1.0.0
+
+                licenses {
+                    license {
+                        name 'The Apache Software License, Version 2.0'
+                        url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id 'GizFei'
+                        name 'GuoYongfei'
+                        email '1150847818@qq.com'
+                    }
+                }
+                scm {
+                    connection gitUrl
+                    developerConnection gitUrl
+                    url siteUrl
+                }
+            }
+        }
+    }
+}
+
+// 上传到JCenter
+Properties properties = new Properties()
+properties.load(project.rootProject.file("local.properties").newDataInputStream())
+bintray{
+    user = properties.getProperty("bintray.user") //读取 local.properties 文件里面的 bintray.user
+    key = properties.getProperty("bintray.apiKey") //读取 local.properties 文件里面的 bintray.apiKey
+    configurations = ['archives']
+    pkg {
+        repo = "AndroidToolkit" // Bintray上创建的repo名
+        name = pkgName  // 发布到JCenter上的Package名字，必须填写
+        desc = "Android Toolkit" // 项目（当前版本）的描述
+        websiteUrl = siteUrl
+        vcsUrl = gitUrl
+        licenses = ["Apache-2.0"]
+        publish = true
+    }
+}
+
+javadoc {
+    options {
+        encoding "UTF-8"
+        charSet 'UTF-8'
+        author true
+        version true
+    }
+}
+// 命令：gradlew install
+// gradlew bintrayUpload
